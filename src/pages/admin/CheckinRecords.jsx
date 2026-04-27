@@ -136,6 +136,7 @@ export default function CheckinRecords() {
                 <th>姓名</th>
                 <th className="hidden sm:table-cell">場次</th>
                 <th>報到時間</th>
+                <th className="hidden md:table-cell">操作人員</th>
                 <th>狀態</th>
                 <th>操作</th>
               </tr>
@@ -143,7 +144,7 @@ export default function CheckinRecords() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-12">
+                  <td colSpan={6} className="text-center text-gray-400 py-12">
                     {search ? '找不到符合記錄' : '尚無報到記錄'}
                   </td>
                 </tr>
@@ -160,6 +161,7 @@ export default function CheckinRecords() {
                       : '-'
                     }
                   </td>
+                  <td className="hidden md:table-cell text-gray-500 text-xs">{c.operator_name || '-'}</td>
                   <td>
                     <span className={`badge ${c.is_cancelled ? 'badge-red' : 'badge-green'}`}>
                       {c.is_cancelled ? '已取消' : '已報到'}
@@ -191,12 +193,4 @@ export default function CheckinRecords() {
       )}
 
       {editTime && (
-        <EditTimeModal
-          checkin={editTime}
-          onClose={() => setEditTime(null)}
-          onSave={() => { setEditTime(null); fetchData() }}
-        />
-      )}
-    </div>
-  )
-}
+        <EditTi
