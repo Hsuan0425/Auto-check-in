@@ -470,4 +470,7 @@ export default function Registrants() {
       )}
 
       {showAdd && <AddRegistrantModal eventId={eventId} eventFields={eventFields} onClose={() => setShowAdd(false)} onSave={() => { setShowAdd(false); fetchData() }} />}
-      {editTarget && <EditRegistrantModal registrant={editTarget} eventFields={eventFields} onClose={() => setEditTarget(null)} on
+      {editTarget && <EditRegistrantModal registrant={editTarget} eventFields={eventFields} onClose={() => setEditTarget(null)} onSave={() => { setEditTarget(null); fetchData() }} />}
+    </div>
+  )
+}
