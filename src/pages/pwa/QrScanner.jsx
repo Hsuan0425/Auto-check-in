@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, CameraOff } from 'lucide-react'
+import { Html5Qrcode } from 'html5-qrcode'
 
-export default function QrScanner({ onScan, disabled = false, continuous = false }) {
+export default function QrScanner({ onScan, disabled = false, continuous = false, onReady }) {
   const containerRef = useRef()
   const scannerRef = useRef(null)
   const lastScannedRef = useRef('')
@@ -19,7 +20,6 @@ export default function QrScanner({ onScan, disabled = false, continuous = false
     setLoading(true)
     setError('')
     try {
-      const { Html5Qrcode } = await import('html5-qrcode')
       const qrId = 'qr-reader-' + Date.now()
       if (containerRef.current) containerRef.current.id = qrId
 
@@ -34,25 +34,17 @@ export default function QrScanner({ onScan, disabled = false, continuous = false
           aspectRatio: 1.0,
         },
         async (decodedText) => {
-          // 防止重複觸發（同一個 QR Code 2秒內只觸發一次）
           const now = Date.now()
           if (decodedText === lastScannedRef.current && now - lastTimeRef.current < 2000) return
-
           lastScannedRef.current = decodedText
           lastTimeRef.current = now
-
-          if (!continuous) {
-            // 非連續模式：掃到後停止掃描
-            await stopScanner()
-          }
-
-          if (!disabled) {
-            onScan(decodedText)
-          }
+          if (!continuous) await stopScanner()
+          if (!disabled) onScan(decodedText)
         },
-        () => {} // onError: 掃描中無匹配，忽略
+        () => {}
       )
       setStarted(true)
+      if (onReady) onReady()
     } catch (err) {
       if (err.name === 'NotAllowedError') {
         setError('請允許使用相機權限，才能掃描 QR Code')
@@ -74,6 +66,13 @@ export default function QrScanner({ onScan, disabled = false, continuous = false
     }
     setStarted(false)
   }
+
+  // 提供給父元件重新啟動掃描的方法
+  useEffect(() => {
+    if (!disabled && !started && !loading && !error) {
+      startScanner()
+    }
+  }, [disabled])
 
   if (error) {
     return (

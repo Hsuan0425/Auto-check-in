@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { QrCode, Search, Edit3, Wifi, WifiOff, BarChart2 } from 'lucide-react'
+import { QrCode, Search, Edit3, Wifi, WifiOff, BarChart2, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { verifyQRToken } from '../../lib/qrcode'
 import { addPendingCheckin, getCachedRegistrantByToken, getCachedRegistrantBySerial, getPendingCount, cacheRegistrants } from '../../lib/indexeddb'
@@ -20,25 +20,21 @@ export default function CheckinMain() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [processing, setProcessing] = useState(false)
-  const [lastResult, setLastResult] = useState(null)
+  const [scanResult, setScanResult] = useState(null) // 覆蓋在掃描畫面上的結果
   const manualInputRef = useRef()
+  const resultTimerRef = useRef()
 
   useEffect(() => {
-    // 監聽網路狀態
     const onOnline = () => { setIsOnline(true); syncPending() }
     const onOffline = () => setIsOnline(false)
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
-
-    // 載入離線待同步數量
     updatePendingCount()
-
-    // 快取報名者資料供離線使用
     if (isOnline) preloadRegistrants()
-
     return () => {
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
+      if (resultTimerRef.current) clearTimeout(resultTimerRef.current)
     }
   }, [])
 
@@ -57,7 +53,16 @@ export default function CheckinMain() {
     } catch {}
   }
 
-  // 執行報到邏輯
+  // 顯示結果 overlay，2 秒後自動消失並繼續掃描
+  function showResult(result) {
+    setScanResult(result)
+    if (resultTimerRef.current) clearTimeout(resultTimerRef.current)
+    resultTimerRef.current = setTimeout(() => {
+      setScanResult(null)
+      setProcessing(false)
+    }, 2000)
+  }
+
   async function performCheckin(registrantId, name) {
     if (processing) return
     setProcessing(true)
@@ -73,56 +78,33 @@ export default function CheckinMain() {
       }
 
       if (isOnline) {
-        // 線上模式：直接寫入 Supabase
         const { error } = await supabase.from('checkins').insert([checkinData])
         if (error) {
           if (error.code === '23505') {
-            // UNIQUE 衝突 = 重複報到
-            const result = { success: false, duplicate: true, name }
-            setLastResult(result)
-            navigate('/app/checkin/result', { state: result })
+            showResult({ success: false, duplicate: true, name })
             return
           }
           throw error
         }
       } else {
-        // 離線模式：存入 IndexedDB
         await addPendingCheckin(checkinData)
         await updatePendingCount()
       }
 
-      const result = {
-        success: true,
-        duplicate: false,
-        name,
-        offline: !isOnline,
-        time: checkinData.checked_at,
-      }
-      setLastResult(result)
-
-      if (mode === MODE_FAST) {
-        // 快速模式：直接顯示結果 toast，不跳頁
-        toast.success(`✓ ${name} 報到成功${!isOnline ? '（離線）' : ''}`, { duration: 2000 })
-      } else {
-        navigate('/app/checkin/result', { state: result })
-      }
+      showResult({ success: true, name, offline: !isOnline })
     } catch (err) {
       toast.error('報到失敗：' + (err.message || '請重試'))
-    } finally {
       setProcessing(false)
     }
   }
 
-  // QR Code 掃描回呼
   async function handleQRScan(rawToken) {
     if (processing) return
-    // 驗證 token
     const registrantId = await verifyQRToken(rawToken)
     if (!registrantId) {
       toast.error('無效的 QR Code')
       return
     }
-    // 查詢報名者
     let registrant = null
     if (isOnline) {
       const { data } = await supabase
@@ -141,7 +123,6 @@ export default function CheckinMain() {
     await performCheckin(registrant.id, registrant.name)
   }
 
-  // 手動輸入報到
   async function handleManualCheckin(e) {
     e.preventDefault()
     const serial = manualSerial.trim()
@@ -173,12 +154,10 @@ export default function CheckinMain() {
     }
   }
 
-  // 同步離線資料
   async function syncPending() {
     const { getPendingCheckins, markCheckinSynced } = await import('../../lib/indexeddb')
     const pending = await getPendingCheckins()
     if (pending.length === 0) return
-
     let synced = 0
     for (const item of pending) {
       try {
@@ -248,46 +227,56 @@ export default function CheckinMain() {
       </div>
 
       {/* 各模式內容 */}
-      <div className="flex-1 p-4">
-        {/* QR 掃描模式 */}
-        {mode === MODE_QR && (
-          <div>
-            <p className="text-center text-sm text-gray-500 mb-4">
-              請將 QR Code 對準鏡頭框
-            </p>
-            <QrScanner
-              onScan={handleQRScan}
-              disabled={processing}
-            />
-            {processing && (
-              <div className="text-center mt-4 text-primary-600 flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"/>
-                處理中...
-              </div>
-            )}
+      <div className="flex-1 p-4 relative">
+
+        {/* 掃描結果 overlay（全模式共用） */}
+        {scanResult && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-xl"
+            onClick={() => { setScanResult(null); setProcessing(false); if (resultTimerRef.current) clearTimeout(resultTimerRef.current) }}>
+            <div className={`rounded-2xl px-10 py-8 text-center shadow-2xl mx-6 w-full max-w-xs ${
+              scanResult.success ? 'bg-green-50' : scanResult.duplicate ? 'bg-amber-50' : 'bg-red-50'
+            }`}>
+              {scanResult.success
+                ? <CheckCircle size={56} className="mx-auto mb-3 text-green-500"/>
+                : scanResult.duplicate
+                  ? <AlertCircle size={56} className="mx-auto mb-3 text-amber-500"/>
+                  : <XCircle size={56} className="mx-auto mb-3 text-red-500"/>
+              }
+              <p className="text-2xl font-bold text-gray-900 mb-1">{scanResult.name}</p>
+              <p className={`text-base font-medium ${
+                scanResult.success ? 'text-green-600' : scanResult.duplicate ? 'text-amber-600' : 'text-red-600'
+              }`}>
+                {scanResult.success
+                  ? `✓ 報到成功${scanResult.offline ? '（離線）' : ''}`
+                  : scanResult.duplicate ? '⚠ 已重複報到' : '✗ 報到失敗'}
+              </p>
+              <p className="text-xs text-gray-400 mt-3">點任意處繼續掃描</p>
+            </div>
           </div>
         )}
 
-        {/* 快速模式：連續掃描不跳頁 */}
+        {/* QR 掃描模式 */}
+        {mode === MODE_QR && (
+          <div>
+            <p className="text-center text-sm text-gray-500 mb-4">請將 QR Code 對準鏡頭框</p>
+            <QrScanner onScan={handleQRScan} disabled={processing} continuous={true} />
+          </div>
+        )}
+
+        {/* 快速模式 */}
         {mode === MODE_FAST && (
           <div>
             <div className="bg-blue-50 rounded-xl p-3 mb-4 text-sm text-blue-700">
               快速模式：掃描後直接顯示結果，不切換頁面，適合大量報到。
             </div>
-            <QrScanner
-              onScan={handleQRScan}
-              disabled={processing}
-              continuous={true}
-            />
+            <QrScanner onScan={handleQRScan} disabled={processing} continuous={true} />
           </div>
         )}
 
         {/* 手動輸入模式 */}
         {mode === MODE_MANUAL && (
           <div className="max-w-sm mx-auto">
-            <p className="text-center text-sm text-gray-500 mb-6">
-              輸入報名編號進行報到
-            </p>
+            <p className="text-center text-sm text-gray-500 mb-6">輸入報名編號進行報到</p>
             <form onSubmit={handleManualCheckin} className="space-y-3">
               <input
                 ref={manualInputRef}
@@ -311,7 +300,6 @@ export default function CheckinMain() {
               </button>
             </form>
 
-            {/* 快速數字鍵盤（補充） */}
             <div className="grid grid-cols-3 gap-2 mt-4">
               {[1,2,3,4,5,6,7,8,9,'清除',0,'報到'].map(key => (
                 <button
