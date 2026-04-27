@@ -193,4 +193,12 @@ export default function CheckinRecords() {
       )}
 
       {editTime && (
-        <EditTi
+        <EditTimeModal
+          checkin={editTime}
+          onClose={() => setEditTime(null)}
+          onSave={() => { setEditTime(null); fetchData() }}
+        />
+      )}
+    </div>
+  )
+}
