@@ -116,4 +116,23 @@ export function downloadImportTemplate() {
     {
       '姓名': '王小明（必填）',
       '手機': '0912345678',
-      'Email': 'wang@example
+      'Email': 'wang@example.com',
+      '備註': '範例備註',
+      '（可自行新增欄位）': '例如：單位、職稱、餐飲選擇...',
+    },
+    {
+      '姓名': '李小花',
+      '手機': '0987654321',
+      'Email': 'lee@example.com',
+      '備註': '',
+      '（可自行新增欄位）': '',
+    },
+  ]
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { width: 16 }, { width: 14 }, { width: 26 }, { width: 20 }, { width: 30 },
+  ]
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '報名者')
+  XLSX.writeFile(workbook, '報名者匯入範本.xlsx')
+}
