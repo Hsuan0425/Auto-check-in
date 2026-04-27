@@ -128,7 +128,7 @@ export default function CheckinMain() {
       const { data } = await supabase
         .from('registrants')
         .select('id, name')
-        .eq('id', registrantId)
+        .eq('qr_token', rawToken)
         .single()
       registrant = data
     } else {
@@ -344,4 +344,3 @@ export default function CheckinMain() {
       </div>
     </div>
   )
-}

@@ -70,24 +70,32 @@ export function exportCheckinsToExcel(checkins, eventName = '活動') {
 }
 
 /**
- * 匯出報名者清單（含 QR Code 欄位）為 Excel
+ * 匯出報名者清單（含備註與自訂欄位）為 Excel
+ * @param {Array} registrants
+ * @param {string} eventName
+ * @param {Array} eventFields - 自訂欄位定義（可選）
  */
-export function exportRegistrantsToExcel(registrants, eventName = '活動') {
-  const rows = registrants.map((r, index) => ({
-    '序號': index + 1,
-    '報名編號': r.serial_no || '',
-    '姓名': r.name || '',
-    '手機': r.phone || '',
-    'Email': r.email || '',
-    '報到狀態': r.checked_in ? '已報到' : '未報到',
-    'QR Token': r.qr_token || '',
-  }))
+export function exportRegistrantsToExcel(registrants, eventName = '活動', eventFields = []) {
+  const rows = registrants.map((r, index) => {
+    const row = {
+      '序號': index + 1,
+      '報名編號': r.serial_no || '',
+      '姓名': r.name || '',
+      '手機': r.phone || '',
+      'Email': r.email || '',
+      '備註': r.notes || '',
+      '報到狀態': (r.checkins?.[0]?.count || 0) > 0 ? '已報到' : '未報到',
+    }
+    return row
+  })
+
+  const colWidths = [
+    { width: 6 }, { width: 12 }, { width: 14 },
+    { width: 14 }, { width: 24 }, { width: 20 }, { width: 10 },
+  ]
 
   const worksheet = XLSX.utils.json_to_sheet(rows)
-  worksheet['!cols'] = [
-    { width: 6 }, { width: 12 }, { width: 12 },
-    { width: 14 }, { width: 24 }, { width: 10 }, { width: 40 },
-  ]
+  worksheet['!cols'] = colWidths
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, '報名者清單')
@@ -96,19 +104,16 @@ export function exportRegistrantsToExcel(registrants, eventName = '活動') {
   XLSX.writeFile(workbook, filename)
 }
 
+
+
 /**
  * 產生 Excel 匯入範本
+ * 說明：姓名為必填，其餘欄位可自由增減。
+ * 非標準欄位（姓名/手機/Email/備註）將自動建立為此活動的自訂欄位。
  */
 export function downloadImportTemplate() {
   const rows = [
-    { '姓名': '王小明', '手機': '0912345678', 'Email': 'wang@example.com', '備註': '' },
-    { '姓名': '李小花', '手機': '0987654321', 'Email': 'lee@example.com', '備註': '' },
-  ]
-  const worksheet = XLSX.utils.json_to_sheet(rows)
-  worksheet['!cols'] = [
-    { width: 12 }, { width: 14 }, { width: 24 }, { width: 20 },
-  ]
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, '報名者')
-  XLSX.writeFile(workbook, '報名者匯入範本.xlsx')
-}
+    {
+      '姓名': '王小明（必填）',
+      '手機': '0912345678',
+      'Email': 'wang@example
