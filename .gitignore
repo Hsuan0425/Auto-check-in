@@ -1,0 +1,19 @@
+# 相依套件
+node_modules/
+dist/
+
+# 環境變數（包含密鑰，不可上傳 GitHub）
+.env
+.env.local
+.env.production
+
+# 編輯器
+.vscode/
+.idea/
+
+# 系統檔
+.DS_Store
+Thumbs.db
+
+# Vite
+*.local
