@@ -11,17 +11,14 @@ import { parseRegistrantsFromExcel, exportRegistrantsToExcel, downloadImportTemp
 import toast from 'react-hot-toast'
 import JSZip from 'jszip'
 
-// 標準欄位對應表（Excel 欄名 → DB 欄位）
 const STANDARD_COLS = {
   '姓名': 'name', 'name': 'name',
   '手機': 'phone', 'phone': 'phone', '電話': 'phone', '聯絡電話': 'phone',
   'Email': 'email', 'email': 'email', '電子郵件': 'email', 'e-mail': 'email',
-  '備註': 'notes', 'notes': 'notes', '備注': 'notes', '附註': 'notes',
-  '報名編號': 'serial_no', 'serial_no': 'serial_no', '編號': 'serial_no',
-  '序號': 'serial_no',
+  '備註': 'notes', 'notes': 'notes', '备注': 'notes', '附註': 'notes',
+  '報名編號': 'serial_no', 'serial_no': 'serial_no', '編號': 'serial_no', '序號': 'serial_no',
 }
 
-// ─── 共用表單欄位元件 ─────────────────────────────────────
 function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFields, loading, onSubmit, onClose, submitLabel }) {
   return (
     <form onSubmit={onSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -40,8 +37,6 @@ function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFie
         <input type="email" className="input" placeholder="name@example.com" value={form.email}
           onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
       </div>
-
-      {/* 自訂欄位（從 Excel 匯入後自動建立） */}
       {eventFields.length > 0 && (
         <div className="border-t border-gray-100 pt-4">
           <p className="text-xs text-gray-400 mb-3">以下為此活動的自訂欄位</p>
@@ -51,16 +46,14 @@ function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFie
                 {field.name}{field.required && <span className="text-red-500"> *</span>}
               </label>
               {field.field_type === 'select' ? (
-                <select className="input"
-                  value={customValues[field.id] || ''}
+                <select className="input" value={customValues[field.id] || ''}
                   onChange={e => setCustomValues(p => ({ ...p, [field.id]: e.target.value }))}
                   required={field.required}>
                   <option value="">請選擇...</option>
                   {(field.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               ) : (
-                <input className="input"
-                  type={field.field_type === 'number' ? 'number' : 'text'}
+                <input className="input" type={field.field_type === 'number' ? 'number' : 'text'}
                   value={customValues[field.id] || ''}
                   onChange={e => setCustomValues(p => ({ ...p, [field.id]: e.target.value }))}
                   required={field.required} />
@@ -69,19 +62,15 @@ function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFie
           ))}
         </div>
       )}
-
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">備註</label>
         <input className="input" placeholder="備註說明" value={form.notes}
           onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
       </div>
-
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn-secondary flex-1">取消</button>
         <button type="submit" disabled={loading} className="btn-primary flex-1">
-          {loading
-            ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : null}
+          {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
           {loading ? '處理中...' : submitLabel}
         </button>
       </div>
@@ -89,7 +78,6 @@ function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFie
   )
 }
 
-// ─── 手動新增 Modal ───────────────────────────────────────
 function AddRegistrantModal({ eventId, eventFields, onClose, onSave }) {
   const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' })
   const [customValues, setCustomValues] = useState({})
@@ -100,31 +88,23 @@ function AddRegistrantModal({ eventId, eventFields, onClose, onSave }) {
     if (!form.name.trim()) { toast.error('請輸入姓名'); return }
     setLoading(true)
     try {
-      const { count } = await supabase
-        .from('registrants').select('id', { count: 'exact', head: true }).eq('event_id', eventId)
+      const { count } = await supabase.from('registrants').select('id', { count: 'exact', head: true }).eq('event_id', eventId)
       const serial_no = String((count || 0) + 1).padStart(4, '0')
       const tempId = crypto.randomUUID()
       const qr_token = await generateQRToken(tempId)
-
       const { data, error } = await supabase.from('registrants').insert([{
         event_id: eventId, serial_no, qr_token,
-        name: form.name.trim(), phone: form.phone.trim(),
-        email: form.email.trim(), notes: form.notes.trim(),
+        name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), notes: form.notes.trim(),
       }]).select().single()
       if (error) throw error
-
-      const fieldValues = Object.entries(customValues)
-        .filter(([, val]) => val?.trim())
+      const fieldValues = Object.entries(customValues).filter(([, val]) => val?.trim())
         .map(([fieldId, val]) => ({ registrant_id: data.id, field_id: fieldId, value: val.trim() }))
       if (fieldValues.length > 0) await supabase.from('registrant_field_values').insert(fieldValues)
-
       toast.success('已新增報名者')
       onSave()
     } catch (err) {
       toast.error('新增失敗：' + err.message)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   return (
@@ -134,39 +114,26 @@ function AddRegistrantModal({ eventId, eventFields, onClose, onSave }) {
           <h2 className="text-lg font-semibold">手動新增報名者</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
         </div>
-        <RegistrantForm
-          form={form} setForm={setForm}
-          customValues={customValues} setCustomValues={setCustomValues}
-          eventFields={eventFields} loading={loading}
-          onSubmit={handleSubmit} onClose={onClose} submitLabel="新增" />
+        <RegistrantForm form={form} setForm={setForm} customValues={customValues} setCustomValues={setCustomValues}
+          eventFields={eventFields} loading={loading} onSubmit={handleSubmit} onClose={onClose} submitLabel="新增" />
       </div>
     </div>
   )
 }
 
-// ─── 編輯 Modal ───────────────────────────────────────────
 function EditRegistrantModal({ registrant, eventFields, onClose, onSave }) {
   const [form, setForm] = useState({
-    name: registrant.name || '',
-    phone: registrant.phone || '',
-    email: registrant.email || '',
-    notes: registrant.notes || '',
+    name: registrant.name || '', phone: registrant.phone || '',
+    email: registrant.email || '', notes: registrant.notes || '',
   })
   const [customValues, setCustomValues] = useState({})
   const [loading, setLoading] = useState(false)
 
-  // 載入現有自訂欄位值
   useEffect(() => {
     async function load() {
       if (eventFields.length === 0) return
-      const { data } = await supabase
-        .from('registrant_field_values').select('field_id, value')
-        .eq('registrant_id', registrant.id)
-      if (data) {
-        const map = {}
-        data.forEach(fv => { map[fv.field_id] = fv.value })
-        setCustomValues(map)
-      }
+      const { data } = await supabase.from('registrant_field_values').select('field_id, value').eq('registrant_id', registrant.id)
+      if (data) { const map = {}; data.forEach(fv => { map[fv.field_id] = fv.value }); setCustomValues(map) }
     }
     load()
   }, [registrant.id])
@@ -177,32 +144,23 @@ function EditRegistrantModal({ registrant, eventFields, onClose, onSave }) {
     setLoading(true)
     try {
       const { error } = await supabase.from('registrants').update({
-        name: form.name.trim(), phone: form.phone.trim(),
-        email: form.email.trim(), notes: form.notes.trim(),
+        name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), notes: form.notes.trim(),
       }).eq('id', registrant.id)
       if (error) throw error
-
-      // 更新自訂欄位值（upsert）
       for (const field of eventFields) {
         const val = customValues[field.id]?.trim() || ''
         if (val) {
           await supabase.from('registrant_field_values').upsert(
-            { registrant_id: registrant.id, field_id: field.id, value: val },
-            { onConflict: 'registrant_id,field_id' }
-          )
+            { registrant_id: registrant.id, field_id: field.id, value: val }, { onConflict: 'registrant_id,field_id' })
         } else {
-          await supabase.from('registrant_field_values')
-            .delete().eq('registrant_id', registrant.id).eq('field_id', field.id)
+          await supabase.from('registrant_field_values').delete().eq('registrant_id', registrant.id).eq('field_id', field.id)
         }
       }
-
       toast.success('已更新報名者資料')
       onSave()
     } catch (err) {
       toast.error('更新失敗：' + err.message)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   return (
@@ -215,17 +173,13 @@ function EditRegistrantModal({ registrant, eventFields, onClose, onSave }) {
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
         </div>
-        <RegistrantForm
-          form={form} setForm={setForm}
-          customValues={customValues} setCustomValues={setCustomValues}
-          eventFields={eventFields} loading={loading}
-          onSubmit={handleSubmit} onClose={onClose} submitLabel="儲存變更" />
+        <RegistrantForm form={form} setForm={setForm} customValues={customValues} setCustomValues={setCustomValues}
+          eventFields={eventFields} loading={loading} onSubmit={handleSubmit} onClose={onClose} submitLabel="儲存變更" />
       </div>
     </div>
   )
 }
 
-// ─── 主頁面 ──────────────────────────────────────────────
 export default function Registrants() {
   const { eventId } = useParams()
   const navigate = useNavigate()
@@ -238,16 +192,11 @@ export default function Registrants() {
   const [editTarget, setEditTarget] = useState(null)
   const [importing, setImporting] = useState(false)
   const [generatingQR, setGeneratingQR] = useState(false)
-
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [downloadedIds, setDownloadedIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`qr_dl_${eventId}`)
-      return new Set(JSON.parse(saved) || [])
-    } catch { return new Set() }
+    try { return new Set(JSON.parse(localStorage.getItem('qr_dl_' + eventId) || '[]')) } catch { return new Set() }
   })
   const [filterUndownloaded, setFilterUndownloaded] = useState(false)
-
   const fileInputRef = useRef()
 
   useEffect(() => { fetchData() }, [eventId])
@@ -256,10 +205,7 @@ export default function Registrants() {
     setLoading(true)
     const [eventRes, regRes, fieldsRes] = await Promise.all([
       supabase.from('events').select('name').eq('id', eventId).single(),
-      supabase.from('registrants').select(`
-        id, serial_no, name, phone, email, notes, qr_token, created_at,
-        checkins(count)
-      `).eq('event_id', eventId).order('serial_no'),
+      supabase.from('registrants').select('id, serial_no, name, phone, email, notes, qr_token, created_at, checkins(count)').eq('event_id', eventId).order('serial_no'),
       supabase.from('event_fields').select('*').eq('event_id', eventId).order('sort_order'),
     ])
     if (eventRes.data) setEvent(eventRes.data)
@@ -270,16 +216,239 @@ export default function Registrants() {
 
   function saveDownloadedIds(newSet) {
     setDownloadedIds(new Set(newSet))
-    localStorage.setItem(`qr_dl_${eventId}`, JSON.stringify([...newSet]))
+    localStorage.setItem('qr_dl_' + eventId, JSON.stringify([...newSet]))
   }
 
   function getFilteredList() {
     let list = registrants
-    if (search) {
-      list = list.filter(r =>
-        r.name?.includes(search) || r.serial_no?.includes(search) ||
-        r.phone?.includes(search) || r.email?.includes(search)
-      )
-    }
+    if (search) list = list.filter(r => r.name?.includes(search) || r.serial_no?.includes(search) || r.phone?.includes(search) || r.email?.includes(search))
     if (filterUndownloaded) list = list.filter(r => !downloadedIds.has(r.id))
     return list
+  }
+
+  function toggleSelectAll() {
+    const displayList = getFilteredList()
+    if (displayList.every(r => selectedIds.has(r.id)) && displayList.length > 0) {
+      const next = new Set(selectedIds); displayList.forEach(r => next.delete(r.id)); setSelectedIds(next)
+    } else {
+      const next = new Set(selectedIds); displayList.forEach(r => next.add(r.id)); setSelectedIds(next)
+    }
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const rows = await parseRegistrantsFromExcel(file)
+      if (rows.length === 0) { toast.error('Excel 無資料'); return }
+      const allKeys = Object.keys(rows[0] || {})
+      const customColNames = allKeys.filter(k => !STANDARD_COLS[k])
+      let currentFields = [...eventFields]
+      for (const colName of customColNames) {
+        if (!currentFields.find(f => f.name === colName)) {
+          const { data: newField } = await supabase.from('event_fields').insert([{
+            event_id: eventId, name: colName, field_type: 'text', sort_order: currentFields.length,
+          }]).select().single()
+          if (newField) currentFields.push(newField)
+        }
+      }
+      const { data: existing } = await supabase.from('registrants').select('id, serial_no, qr_token').eq('event_id', eventId)
+      const existingMap = {}
+      ;(existing || []).forEach(r => { existingMap[r.serial_no] = r })
+      let updated = 0, inserted = 0
+      const toastId = toast.loading('覆蓋匯入中...')
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        const name = (row['姓名'] || row['name'] || '').trim()
+        if (!name) continue
+        const serial_no = String(i + 1).padStart(4, '0')
+        const phone = String(row['手機'] || row['phone'] || row['電話'] || row['聯絡電話'] || '').trim()
+        const email = String(row['Email'] || row['email'] || row['電子郵件'] || '').trim()
+        const notes = String(row['備註'] || row['notes'] || row['備注'] || row['附註'] || '').trim()
+        let registrantId
+        if (existingMap[serial_no]) {
+          const { error } = await supabase.from('registrants').update({ name, phone, email, notes }).eq('id', existingMap[serial_no].id)
+          if (!error) { registrantId = existingMap[serial_no].id; updated++ }
+        } else {
+          const tempId = crypto.randomUUID()
+          const qr_token = await generateQRToken(tempId)
+          const { data: newR, error } = await supabase.from('registrants').insert([{
+            event_id: eventId, serial_no, qr_token, name, phone, email, notes,
+          }]).select('id').single()
+          if (!error && newR) { registrantId = newR.id; inserted++ }
+        }
+        if (registrantId) {
+          for (const field of currentFields) {
+            const val = String(row[field.name] || '').trim()
+            if (val) await supabase.from('registrant_field_values').upsert(
+              { registrant_id: registrantId, field_id: field.id, value: val }, { onConflict: 'registrant_id,field_id' })
+          }
+        }
+      }
+      toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人', { id: toastId })
+      fetchData()
+    } catch (err) {
+      toast.error('匯入失敗：' + err.message)
+    } finally { setImporting(false); e.target.value = '' }
+  }
+
+  async function downloadQRCodes(targets) {
+    if (targets.length === 0) { toast.error('沒有可下載的報名者'); return }
+    setGeneratingQR(true)
+    const toastId = toast.loading('產生 QR Code 中...')
+    try {
+      const zip = new JSZip()
+      for (let i = 0; i < targets.length; i++) {
+        const r = targets[i]
+        const dataUrl = await generateQRCodeDataURL(r.qr_token)
+        zip.file(r.serial_no + '_' + r.name + '.png', dataUrl.split(',')[1], { base64: true })
+        if ((i + 1) % 10 === 0) toast.loading('產生 QR Code 中... (' + (i+1) + '/' + targets.length + ')', { id: toastId })
+      }
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = (event?.name || '活動') + '_QRCode.zip'; a.click()
+      URL.revokeObjectURL(url)
+      const newSet = new Set(downloadedIds); targets.forEach(r => newSet.add(r.id)); saveDownloadedIds(newSet)
+      toast.success('已下載 ' + targets.length + ' 個 QR Code', { id: toastId })
+      setSelectedIds(new Set())
+    } catch (err) {
+      toast.error('下載失敗：' + err.message, { id: toastId })
+    } finally { setGeneratingQR(false) }
+  }
+
+  async function handleDelete(r) {
+    if (!confirm('確定刪除「' + r.name + '」？此操作無法復原。')) return
+    const { error } = await supabase.from('registrants').delete().eq('id', r.id)
+    if (error) { toast.error('刪除失敗'); return }
+    toast.success('已刪除')
+    const newSet = new Set(downloadedIds); newSet.delete(r.id); saveDownloadedIds(newSet)
+    fetchData()
+  }
+
+  const filtered = getFilteredList()
+  const allSelected = filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))
+  const selectedInFiltered = filtered.filter(r => selectedIds.has(r.id)).length
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><ChevronLeft size={18} /></button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold text-gray-900">報名者管理</h1>
+          <p className="text-sm text-gray-500">共 {registrants.length} 位報名者{downloadedIds.size > 0 && '・已下載 QR ' + downloadedIds.size + ' 人'}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-primary" onClick={() => setShowAdd(true)}><Plus size={15} /> 手動新增</button>
+        <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+          <Upload size={15} /> {importing ? '匯入中...' : 'Excel 匯入（覆蓋）'}
+        </button>
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+        <button className="btn-secondary" onClick={downloadImportTemplate}><FileDown size={15} /> 下載範本</button>
+        <button className="btn-secondary" onClick={() => exportRegistrantsToExcel(registrants, event?.name, eventFields)} disabled={registrants.length === 0}>
+          <Download size={15} /> 匯出 Excel
+        </button>
+        {selectedIds.size > 0 ? (
+          <button className="btn-primary" onClick={() => downloadQRCodes(registrants.filter(r => selectedIds.has(r.id)))} disabled={generatingQR}>
+            <QrCode size={15} /> {generatingQR ? '產生中...' : '下載已勾選 QR（' + selectedIds.size + ' 人）'}
+          </button>
+        ) : (
+          <button className="btn-secondary" onClick={() => downloadQRCodes(filtered)} disabled={generatingQR || filtered.length === 0}>
+            <QrCode size={15} /> {generatingQR ? '產生中...' : '批次下載 QR（' + filtered.length + ' 人）'}
+          </button>
+        )}
+      </div>
+
+      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2.5 text-xs text-blue-700">
+        💡 <strong>Excel 匯入為覆蓋模式</strong>：依序號位置更新資料，QR Code 不會變動；序號不存在則自動新增。
+      </div>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input pl-9" placeholder="搜尋姓名、編號、手機..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <button className={'btn-secondary flex items-center gap-1.5 whitespace-nowrap ' + (filterUndownloaded ? 'bg-amber-50 border-amber-300 text-amber-700' : '')}
+          onClick={() => setFilterUndownloaded(p => !p)}>
+          <Filter size={14} /> {filterUndownloaded ? '顯示全部' : '未下載 QR'}
+        </button>
+      </div>
+
+      {selectedIds.size > 0 && (
+        <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-2.5 text-sm text-primary-700 flex items-center justify-between">
+          <span>已勾選 <strong>{selectedIds.size}</strong> 位{selectedInFiltered !== selectedIds.size && '（本頁 ' + selectedInFiltered + ' 位）'}</span>
+          <button className="text-primary-500 hover:text-primary-700 text-xs underline" onClick={() => setSelectedIds(new Set())}>取消全選</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="card p-8 text-center"><div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">
+          <Users size={40} className="mx-auto mb-3 opacity-30" />
+          <p>{search || filterUndownloaded ? '找不到符合的報名者' : '尚無報名者，請匯入或手動新增'}</p>
+          {filterUndownloaded && !search && <p className="text-xs mt-2 text-green-600">🎉 所有報名者的 QR Code 都已下載完畢！</p>}
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th className="w-10">
+                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
+                    {allSelected ? <CheckSquare size={16} className="text-primary-600" /> : <Square size={16} />}
+                  </button>
+                </th>
+                <th>編號</th><th>姓名</th>
+                <th className="hidden sm:table-cell">手機</th>
+                <th className="hidden md:table-cell">Email</th>
+                <th>報到</th><th>QR</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => {
+                const checkedIn = (r.checkins?.[0]?.count || 0) > 0
+                const qrDownloaded = downloadedIds.has(r.id)
+                const isSelected = selectedIds.has(r.id)
+                return (
+                  <tr key={r.id} className={isSelected ? 'bg-primary-50' : ''}>
+                    <td>
+                      <button onClick={() => toggleSelect(r.id)} className="text-gray-400 hover:text-primary-600">
+                        {isSelected ? <CheckSquare size={16} className="text-primary-600" /> : <Square size={16} />}
+                      </button>
+                    </td>
+                    <td className="font-mono text-xs text-gray-500">{r.serial_no}</td>
+                    <td className="font-medium">
+                      {r.name}
+                      {r.notes && <span className="ml-1.5 text-xs text-gray-400 cursor-help" title={'備註：' + r.notes}>✏️</span>}
+                    </td>
+                    <td className="hidden sm:table-cell text-gray-500 text-xs">{r.phone || '-'}</td>
+                    <td className="hidden md:table-cell text-gray-500 text-xs truncate max-w-xs">{r.email || '-'}</td>
+                    <td><span className={'badge ' + (checkedIn ? 'badge-green' : 'badge-gray')}>{checkedIn ? '已報到' : '未報到'}</span></td>
+                    <td>{qrDownloaded ? <span className="text-xs text-green-600 font-medium">✓ 已載</span> : <span className="text-xs text-gray-300">未載</span>}</td>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <button className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-500" onClick={() => setEditTarget(r)} title="編輯資料"><Pencil size={14} /></button>
+                        <button className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" onClick={() => handleDelete(r)} title="刪除"><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showAdd && <AddRegistrantModal eventId={eventId} eventFields={eventFields} onClose={() => setShowAdd(false)} onSave={() => { setShowAdd(false); fetchData() }} />}
+      {editTarget && <EditRegistrantModal registrant={editTarget} eventFields={eventFields} onClose={() => setEditTarget(null)} onSave={() => { setEditTarget(null); fetchData() }} />}
+    </div>
+  )
+}
