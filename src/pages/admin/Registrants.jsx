@@ -448,7 +448,7 @@ export default function Registrants() {
                 <th>編號</th><th>姓名</th>
                 <th className="hidden sm:table-cell">手機</th>
                 <th className="hidden md:table-cell">Email</th>
-                <th>VIP</th><th>報到</th><th>QR</th><th></th>
+                <th><span title="VIP 貴賓人數">VIP ({registrants.filter(r => r.is_vip).length})</span></th><th>報到</th><th>QR</th><th></th>
               </tr>
             </thead>
             <tbody>
