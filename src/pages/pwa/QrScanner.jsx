@@ -67,9 +67,12 @@ export default function QrScanner({ onScan, disabled = false, continuous = false
     setStarted(false)
   }
 
-  // 提供給父元件重新啟動掃描的方法
+  // 只有 disabled 從 true 變 false 時才重新啟動（避免初始載入時觸發兩次）
+  const prevDisabledRef = useRef(null)
   useEffect(() => {
-    if (!disabled && !started && !loading && !error) {
+    const wasDisabled = prevDisabledRef.current
+    prevDisabledRef.current = disabled
+    if (wasDisabled === true && !disabled && !started && !loading && !error) {
       startScanner()
     }
   }, [disabled])

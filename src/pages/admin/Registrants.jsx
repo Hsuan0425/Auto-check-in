@@ -353,6 +353,23 @@ export default function Registrants() {
     fetchData()
   }
 
+  async function handleToggleVip(r) {
+    const newVal = !r.is_vip
+    // 樂觀更新：先改本地狀態，不等 API
+    setRegistrants(prev => prev.map(reg => reg.id === r.id ? { ...reg, is_vip: newVal } : reg))
+    const { error } = await supabase
+      .from('registrants')
+      .update({ is_vip: newVal })
+      .eq('id', r.id)
+    if (error) {
+      toast.error('操作失敗：' + error.message)
+      // 失敗時還原
+      setRegistrants(prev => prev.map(reg => reg.id === r.id ? { ...reg, is_vip: !newVal } : reg))
+      return
+    }
+    toast.success(newVal ? '⭐ 已設為 VIP 貴賓' : '已取消 VIP')
+  }
+
   const filtered = getFilteredList()
   const allSelected = filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))
   const selectedInFiltered = filtered.filter(r => selectedIds.has(r.id)).length
