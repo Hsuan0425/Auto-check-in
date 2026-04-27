@@ -260,8 +260,14 @@ export default function Registrants() {
       const { data: existing } = await supabase.from('registrants').select('id, serial_no, qr_token').eq('event_id', eventId)
       const existingMap = {}
       ;(existing || []).forEach(r => { existingMap[r.serial_no] = r })
-      let updated = 0, inserted = 0
+      let updated = 0, inserted = 0, failed = 0
       const toastId = toast.loading('覆蓋匯入中...')
+      const firstRowKeys = rows.length > 0 ? Object.keys(rows[0]) : []
+      const hasNameCol = firstRowKeys.some(k => ['姓名', 'name'].includes(k))
+      if (!hasNameCol) {
+        toast.error('找不到「姓名」欄位，請確認 Excel 欄位名稱。目前欄位：' + firstRowKeys.slice(0, 5).join('、'), { id: toastId, duration: 8000 })
+        return
+      }
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
         const name = (row['姓名'] || row['name'] || '').trim()
@@ -269,11 +275,12 @@ export default function Registrants() {
         const serial_no = String(i + 1).padStart(4, '0')
         const phone = String(row['手機'] || row['phone'] || row['電話'] || row['聯絡電話'] || '').trim()
         const email = String(row['Email'] || row['email'] || row['電子郵件'] || '').trim()
-        const notes = String(row['備註'] || row['notes'] || row['備注'] || row['附註'] || '').trim()
+        const notes = String(row['備註'] || row['notes'] || row['备注'] || row['附註'] || '').trim()
         let registrantId
         if (existingMap[serial_no]) {
           const { error } = await supabase.from('registrants').update({ name, phone, email, notes }).eq('id', existingMap[serial_no].id)
           if (!error) { registrantId = existingMap[serial_no].id; updated++ }
+          else { failed++; console.error('update error row', i, error) }
         } else {
           const tempId = crypto.randomUUID()
           const qr_token = await generateQRToken(tempId)
@@ -281,6 +288,7 @@ export default function Registrants() {
             event_id: eventId, serial_no, qr_token, name, phone, email, notes,
           }]).select('id').single()
           if (!error && newR) { registrantId = newR.id; inserted++ }
+          else { failed++; console.error('insert error row', i, error) }
         }
         if (registrantId) {
           for (const field of currentFields) {
@@ -290,7 +298,8 @@ export default function Registrants() {
           }
         }
       }
-      toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人', { id: toastId })
+      const failMsg = failed > 0 ? ('，失敗 ' + failed + ' 筆（請檢查 Supabase RLS 權限）') : ''
+      toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人' + failMsg, { id: toastId, duration: 6000 })
       fetchData()
     } catch (err) {
       toast.error('匯入失敗：' + err.message)
@@ -307,7 +316,7 @@ export default function Registrants() {
         const r = targets[i]
         const dataUrl = await generateQRCodeDataURL(r.qr_token)
         zip.file(r.serial_no + '_' + r.name + '.png', dataUrl.split(',')[1], { base64: true })
-        if ((i + 1) % 10 === 0) toast.loading('產生 QR Code 中... (' + (i+1) + '/' + targets.length + ')', { id: toastId })
+        if ((i + 1) % 10 === 0) toast.loading('產生 QR Code 中... (' + (i + 1) + '/' + targets.length + ')', { id: toastId })
       }
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
