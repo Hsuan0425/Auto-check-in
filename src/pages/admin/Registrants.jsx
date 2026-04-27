@@ -251,7 +251,15 @@ export default function Registrants() {
       const rows = await parseRegistrantsFromExcel(file)
       if (rows.length === 0) { toast.error('Excel 無資料'); return }
       const allKeys = Object.keys(rows[0] || {})
-      const customColNames = allKeys.filter(k => !STANDARD_COLS[k])
+      // 建立欄位別名反查表（只對應有值的 STANDARD_COLS，null 表示忽略該欄）
+      const colMap = {}
+      allKeys.forEach(k => { if (STANDARD_COLS[k]) colMap[STANDARD_COLS[k]] = k })
+      if (!colMap['name']) {
+        toast.error('找不到姓名欄位，請確認 Excel 欄位名稱。目前欄位：' + allKeys.slice(0, 5).join('、'), { duration: 8000 })
+        return
+      }
+      // 非標準欄位（且不在 STANDARD_COLS 中）建立為自訂欄位
+      const customColNames = allKeys.filter(k => !(k in STANDARD_COLS))
       let currentFields = [...eventFields]
       for (const colName of customColNames) {
         if (!currentFields.find(f => f.name === colName)) {
@@ -265,16 +273,8 @@ export default function Registrants() {
       const existingMap = {}
       ;(existing || []).forEach(r => { existingMap[r.serial_no] = r })
       let updated = 0, inserted = 0, failed = 0
-      const toastId = toast.loading('覆蓋匯入中...')
-      const firstRowKeys = rows.length > 0 ? Object.keys(rows[0]) : []
-      // 建立欄位別名反查表：找到每個 row key 對應的標準欄位名
-      const colMap = {}
-      firstRowKeys.forEach(k => { if (STANDARD_COLS[k]) colMap[STANDARD_COLS[k]] = k })
-      const hasNameCol = !!colMap['name']
-      if (!hasNameCol) {
-        toast.error('找不到姓名欄位，請確認 Excel 欄位名稱。目前欄位：' + firstRowKeys.slice(0, 5).join('、'), { id: toastId, duration: 8000 })
-        return
-      }
+      const toastId = toast.loading('覆蓋匯入中（0/' + rows.length + '）...')
+      const fieldValuesBatch = []
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
         const name = String(row[colMap['name']] || '').trim()
@@ -300,20 +300,18 @@ export default function Registrants() {
         if (registrantId) {
           for (const field of currentFields) {
             const val = String(row[field.name] || '').trim()
-            if (val) await supabase.from('registrant_field_values').upsert(
-              { registrant_id: registrantId, field_id: field.id, value: val }, { onConflict: 'registrant_id,field_id' })
+            if (val) fieldValuesBatch.push({ registrant_id: registrantId, field_id: field.id, value: val })
           }
         }
+        if ((i + 1) % 20 === 0) toast.loading('覆蓋匯入中（' + (i + 1) + '/' + rows.length + '）...', { id: toastId })
       }
-      const failMsg = failed > 0 ? ('，失敗 ' + failed + ' 筆（請檢查 Supabase RLS 權限）') : ''
-      if (updated === 0 && inserted === 0 && failed === 0 && rows.length > 0) {
-        const firstRow = rows[0]
-        const keys = Object.keys(firstRow).slice(0, 4).join('、')
-        const firstName = firstRow['姓名'] ?? firstRow['name'] ?? '(找不到)'
-        toast.error('所有列皆跳過！欄位：' + keys + ' / 第一列姓名欄值：「' + firstName + '」', { id: toastId, duration: 15000 })
-      } else {
-        toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人' + failMsg, { id: toastId, duration: 6000 })
+      // 批次寫入自訂欄位值（每次最多100筆）
+      for (let c = 0; c < fieldValuesBatch.length; c += 100) {
+        await supabase.from('registrant_field_values').upsert(
+          fieldValuesBatch.slice(c, c + 100), { onConflict: 'registrant_id,field_id' })
       }
+      const failMsg = failed > 0 ? ('，失敗 ' + failed + ' 筆') : ''
+      toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人' + failMsg, { id: toastId, duration: 6000 })
       fetchData()
     } catch (err) {
       toast.error('匯入失敗：' + err.message)
