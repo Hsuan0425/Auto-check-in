@@ -344,3 +344,4 @@ export default function CheckinMain() {
       </div>
     </div>
   )
+}
