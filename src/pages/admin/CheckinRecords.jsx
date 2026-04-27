@@ -55,6 +55,8 @@ export default function CheckinRecords() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [editTime, setEditTime] = useState(null)
+  const [sortBy, setSortBy] = useState('checked_at')
+  const [sortDir, setSortDir] = useState('desc')
 
   useEffect(() => { fetchData() }, [eventId])
 
@@ -92,11 +94,28 @@ export default function CheckinRecords() {
     fetchData()
   }
 
-  const filtered = checkins.filter(c =>
-    c.registrants?.name?.includes(search) ||
-    c.registrants?.serial_no?.includes(search) ||
-    c.sessions?.name?.includes(search)
-  )
+  function toggleSort(col) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir(col === 'serial_no' ? 'asc' : 'desc') }
+  }
+
+  const filtered = checkins
+    .filter(c =>
+      c.registrants?.name?.includes(search) ||
+      c.registrants?.serial_no?.includes(search) ||
+      c.sessions?.name?.includes(search)
+    )
+    .sort((a, b) => {
+      let va, vb
+      if (sortBy === 'serial_no') {
+        va = a.registrants?.serial_no || ''
+        vb = b.registrants?.serial_no || ''
+      } else {
+        va = a.checked_at || ''
+        vb = b.checked_at || ''
+      }
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+    })
 
   return (
     <div className="space-y-5">
@@ -133,9 +152,20 @@ export default function CheckinRecords() {
           <table className="table">
             <thead>
               <tr>
+                <th
+                  className="cursor-pointer select-none whitespace-nowrap"
+                  onClick={() => toggleSort('serial_no')}
+                >
+                  編號 {sortBy === 'serial_no' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="text-gray-300">↕</span>}
+                </th>
                 <th>姓名</th>
                 <th className="hidden sm:table-cell">場次</th>
-                <th>報到時間</th>
+                <th
+                  className="cursor-pointer select-none whitespace-nowrap"
+                  onClick={() => toggleSort('checked_at')}
+                >
+                  報到時間 {sortBy === 'checked_at' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="text-gray-300">↕</span>}
+                </th>
                 <th className="hidden md:table-cell">操作人員</th>
                 <th>狀態</th>
                 <th>操作</th>
@@ -144,15 +174,15 @@ export default function CheckinRecords() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-400 py-12">
+                  <td colSpan={7} className="text-center text-gray-400 py-12">
                     {search ? '找不到符合記錄' : '尚無報到記錄'}
                   </td>
                 </tr>
               ) : filtered.map(c => (
                 <tr key={c.id} className={c.is_cancelled ? 'opacity-50' : ''}>
+                  <td className="font-mono text-xs text-gray-500">{c.registrants?.serial_no || '-'}</td>
                   <td>
                     <p className="font-medium">{c.registrants?.name}</p>
-                    <p className="text-xs text-gray-400">{c.registrants?.serial_no}</p>
                   </td>
                   <td className="hidden sm:table-cell text-gray-500 text-xs">{c.sessions?.name || '-'}</td>
                   <td className="text-sm text-gray-600">

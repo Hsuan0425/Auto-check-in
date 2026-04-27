@@ -21,6 +21,9 @@ export default function CheckinMain() {
   const [pendingCount, setPendingCount] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [scanResult, setScanResult] = useState(null) // 覆蓋在掃描畫面上的結果
+  const [nameSearch, setNameSearch] = useState('')
+  const [nameResults, setNameResults] = useState([])
+  const [nameSearching, setNameSearching] = useState(false)
   const manualInputRef = useRef()
   const resultTimerRef = useRef()
 
@@ -120,6 +123,28 @@ export default function CheckinMain() {
       toast.error('找不到此報名者')
       return
     }
+    await performCheckin(registrant.id, registrant.name)
+  }
+
+  async function handleNameSearch(keyword) {
+    setNameSearch(keyword)
+    if (!keyword.trim()) { setNameResults([]); return }
+    setNameSearching(true)
+    try {
+      const { data } = await supabase
+        .from('registrants')
+        .select('id, serial_no, name, phone')
+        .eq('event_id', session.eventId)
+        .ilike('name', '%' + keyword + '%')
+        .limit(8)
+      setNameResults(data || [])
+    } catch {}
+    setNameSearching(false)
+  }
+
+  async function handleNameCheckin(registrant) {
+    setNameSearch('')
+    setNameResults([])
     await performCheckin(registrant.id, registrant.name)
   }
 
@@ -276,7 +301,52 @@ export default function CheckinMain() {
         {/* 手動輸入模式 */}
         {mode === MODE_MANUAL && (
           <div className="max-w-sm mx-auto">
-            <p className="text-center text-sm text-gray-500 mb-6">輸入報名編號進行報到</p>
+            {/* 姓名搜尋 */}
+            <div className="mb-5">
+              <p className="text-center text-sm text-gray-500 mb-3">搜尋姓名快速報到</p>
+              <div className="relative">
+                <input
+                  className="input pl-9"
+                  placeholder="輸入中文姓名搜尋..."
+                  value={nameSearch}
+                  onChange={e => handleNameSearch(e.target.value)}
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  {nameSearching
+                    ? <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin inline-block"/>
+                    : <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  }
+                </span>
+              </div>
+              {nameResults.length > 0 && (
+                <div className="mt-1 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                  {nameResults.map(r => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => handleNameCheckin(r)}
+                      className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-primary-50 border-b border-gray-50 last:border-0"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{r.name}</p>
+                        <p className="text-xs text-gray-400">{r.phone || '無電話'}</p>
+                      </div>
+                      <span className="font-mono text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">{r.serial_no}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {nameSearch && !nameSearching && nameResults.length === 0 && (
+                <p className="text-center text-sm text-gray-400 mt-2">找不到「{nameSearch}」</p>
+              )}
+            </div>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"/></div>
+              <div className="relative flex justify-center"><span className="bg-gray-50 px-3 text-xs text-gray-400">或輸入編號</span></div>
+            </div>
+
+            <p className="text-center text-sm text-gray-500 mb-3">輸入報名編號進行報到</p>
             <form onSubmit={handleManualCheckin} className="space-y-3">
               <input
                 ref={manualInputRef}
