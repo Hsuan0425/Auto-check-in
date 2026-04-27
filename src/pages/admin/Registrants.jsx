@@ -12,11 +12,15 @@ import toast from 'react-hot-toast'
 import JSZip from 'jszip'
 
 const STANDARD_COLS = {
-  '姓名': 'name', 'name': 'name',
+  '姓名': 'name', 'name': 'name', '中文姓名': 'name', '英文姓名': 'name',
+  '姓名（必填）': 'name', '報名人姓名': 'name',
   '手機': 'phone', 'phone': 'phone', '電話': 'phone', '聯絡電話': 'phone',
+  '手機號碼': 'phone', '行動電話': 'phone', '聯絡手機': 'phone',
   'Email': 'email', 'email': 'email', '電子郵件': 'email', 'e-mail': 'email',
-  '備註': 'notes', 'notes': 'notes', '备注': 'notes', '附註': 'notes',
+  'E-mail': 'email', 'EMAIL': 'email', '信箱': 'email',
+  '備註': 'notes', 'notes': 'notes', '备注': 'notes', '附註': 'notes', '備注': 'notes',
   '報名編號': 'serial_no', 'serial_no': 'serial_no', '編號': 'serial_no', '序號': 'serial_no',
+  '報到狀態': null, '報到': null,
 }
 
 function RegistrantForm({ form, setForm, customValues, setCustomValues, eventFields, loading, onSubmit, onClose, submitLabel }) {
@@ -263,19 +267,22 @@ export default function Registrants() {
       let updated = 0, inserted = 0, failed = 0
       const toastId = toast.loading('覆蓋匯入中...')
       const firstRowKeys = rows.length > 0 ? Object.keys(rows[0]) : []
-      const hasNameCol = firstRowKeys.some(k => ['姓名', 'name'].includes(k))
+      // 建立欄位別名反查表：找到每個 row key 對應的標準欄位名
+      const colMap = {}
+      firstRowKeys.forEach(k => { if (STANDARD_COLS[k]) colMap[STANDARD_COLS[k]] = k })
+      const hasNameCol = !!colMap['name']
       if (!hasNameCol) {
-        toast.error('找不到「姓名」欄位，請確認 Excel 欄位名稱。目前欄位：' + firstRowKeys.slice(0, 5).join('、'), { id: toastId, duration: 8000 })
+        toast.error('找不到姓名欄位，請確認 Excel 欄位名稱。目前欄位：' + firstRowKeys.slice(0, 5).join('、'), { id: toastId, duration: 8000 })
         return
       }
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
-        const name = (row['姓名'] || row['name'] || '').trim()
+        const name = String(row[colMap['name']] || '').trim()
         if (!name) continue
         const serial_no = String(i + 1).padStart(4, '0')
-        const phone = String(row['手機'] || row['phone'] || row['電話'] || row['聯絡電話'] || '').trim()
-        const email = String(row['Email'] || row['email'] || row['電子郵件'] || '').trim()
-        const notes = String(row['備註'] || row['notes'] || row['备注'] || row['附註'] || '').trim()
+        const phone = String(row[colMap['phone']] || '').trim()
+        const email = String(row[colMap['email']] || '').trim()
+        const notes = String(row[colMap['notes']] || '').trim()
         let registrantId
         if (existingMap[serial_no]) {
           const { error } = await supabase.from('registrants').update({ name, phone, email, notes }).eq('id', existingMap[serial_no].id)
