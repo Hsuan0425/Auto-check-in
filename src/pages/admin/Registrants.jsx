@@ -299,7 +299,14 @@ export default function Registrants() {
         }
       }
       const failMsg = failed > 0 ? ('，失敗 ' + failed + ' 筆（請檢查 Supabase RLS 權限）') : ''
-      toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人' + failMsg, { id: toastId, duration: 6000 })
+      if (updated === 0 && inserted === 0 && failed === 0 && rows.length > 0) {
+        const firstRow = rows[0]
+        const keys = Object.keys(firstRow).slice(0, 4).join('、')
+        const firstName = firstRow['姓名'] ?? firstRow['name'] ?? '(找不到)'
+        toast.error('所有列皆跳過！欄位：' + keys + ' / 第一列姓名欄值：「' + firstName + '」', { id: toastId, duration: 15000 })
+      } else {
+        toast.success('匯入完成：更新 ' + updated + ' 人、新增 ' + inserted + ' 人' + failMsg, { id: toastId, duration: 6000 })
+      }
       fetchData()
     } catch (err) {
       toast.error('匯入失敗：' + err.message)
