@@ -446,6 +446,13 @@ export default function Registrants() {
                         {isSelected ? <CheckSquare size={16} className="text-primary-600" /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="font-mono text-xs text-gray-500">{r.serial_no}</td>
+                    <td className="font-medium">
+                      {r.name}
+                      {r.notes && <span className="ml-1.5 text-xs text-gray-400 cursor-help" title={'備註：' + r.notes}>✏️</span>}
+                    </td>
+                    <td className="hidden sm:table-cell text-gray-500 text-xs">{r.phone || '-'}</td>
+                    <td className="hidden md:table-cell text-gray-500 text-xs truncate max-w-xs">{r.email || '-'}</td>
                     <td>
                       <button
                         onClick={() => handleToggleVip(r)}
@@ -455,13 +462,6 @@ export default function Registrants() {
                         <Crown size={15} />
                       </button>
                     </td>
-                    <td className="font-mono text-xs text-gray-500">{r.serial_no}</td>
-                    <td className="font-medium">
-                      {r.name}
-                      {r.notes && <span className="ml-1.5 text-xs text-gray-400 cursor-help" title={'備註：' + r.notes}>✏️</span>}
-                    </td>
-                    <td className="hidden sm:table-cell text-gray-500 text-xs">{r.phone || '-'}</td>
-                    <td className="hidden md:table-cell text-gray-500 text-xs truncate max-w-xs">{r.email || '-'}</td>
                     <td><span className={'badge ' + (checkedIn ? 'badge-green' : 'badge-gray')}>{checkedIn ? '已報到' : '未報到'}</span></td>
                     <td>{qrDownloaded ? <span className="text-xs text-green-600 font-medium">✓ 已載</span> : <span className="text-xs text-gray-300">未載</span>}</td>
                     <td>
