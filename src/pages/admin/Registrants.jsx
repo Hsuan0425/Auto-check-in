@@ -327,7 +327,8 @@ export default function Registrants() {
       for (let i = 0; i < targets.length; i++) {
         const r = targets[i]
         const dataUrl = await generateQRCodeDataURL(r.qr_token)
-        zip.file(r.serial_no + '_' + r.name + '.png', dataUrl.split(',')[1], { base64: true })
+        const safeName = (r.serial_no + '_' + r.name).replace(/[\/\\:*?"<>|\r\n]/g, '_')
+        zip.file(safeName + '.png', dataUrl.split(',')[1], { base64: true })
         if ((i + 1) % 10 === 0) toast.loading('產生 QR Code 中... (' + (i + 1) + '/' + targets.length + ')', { id: toastId })
       }
       const blob = await zip.generateAsync({ type: 'blob' })
@@ -469,7 +470,4 @@ export default function Registrants() {
       )}
 
       {showAdd && <AddRegistrantModal eventId={eventId} eventFields={eventFields} onClose={() => setShowAdd(false)} onSave={() => { setShowAdd(false); fetchData() }} />}
-      {editTarget && <EditRegistrantModal registrant={editTarget} eventFields={eventFields} onClose={() => setEditTarget(null)} onSave={() => { setEditTarget(null); fetchData() }} />}
-    </div>
-  )
-}
+      {editTarget && <EditRegistrantModal registrant={editTarget} eventFields={eventFields} onClose={() => setEditTarget(null)} on
