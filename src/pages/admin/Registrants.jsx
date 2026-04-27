@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Plus, ChevronLeft, Search, Upload, Download,
   QrCode, Trash2, Users, FileDown, X,
-  CheckSquare, Square, Filter, Pencil
+  CheckSquare, Square, Filter, Pencil, Crown
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { generateQRToken, generateQRCodeDataURL } from '../../lib/qrcode'
@@ -209,7 +209,7 @@ export default function Registrants() {
     setLoading(true)
     const [eventRes, regRes, fieldsRes] = await Promise.all([
       supabase.from('events').select('name').eq('id', eventId).single(),
-      supabase.from('registrants').select('id, serial_no, name, phone, email, notes, qr_token, created_at, checkins(count)').eq('event_id', eventId).order('serial_no'),
+      supabase.from('registrants').select('id, serial_no, name, phone, email, notes, qr_token, is_vip, created_at, checkins(count)').eq('event_id', eventId).order('serial_no'),
       supabase.from('event_fields').select('*').eq('event_id', eventId).order('sort_order'),
     ])
     if (eventRes.data) setEvent(eventRes.data)
@@ -431,7 +431,7 @@ export default function Registrants() {
                 <th>編號</th><th>姓名</th>
                 <th className="hidden sm:table-cell">手機</th>
                 <th className="hidden md:table-cell">Email</th>
-                <th>報到</th><th>QR</th><th></th>
+                <th>VIP</th><th>報到</th><th>QR</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -440,10 +440,19 @@ export default function Registrants() {
                 const qrDownloaded = downloadedIds.has(r.id)
                 const isSelected = selectedIds.has(r.id)
                 return (
-                  <tr key={r.id} className={isSelected ? 'bg-primary-50' : ''}>
+                  <tr key={r.id} className={isSelected ? 'bg-primary-50' : r.is_vip ? 'bg-amber-50' : ''}>
                     <td>
                       <button onClick={() => toggleSelect(r.id)} className="text-gray-400 hover:text-primary-600">
                         {isSelected ? <CheckSquare size={16} className="text-primary-600" /> : <Square size={16} />}
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleToggleVip(r)}
+                        title={r.is_vip ? '取消 VIP' : '設為 VIP'}
+                        className={`p-1 rounded-full transition-colors ${r.is_vip ? 'text-amber-500 hover:text-amber-300' : 'text-gray-200 hover:text-amber-400'}`}
+                      >
+                        <Crown size={15} />
                       </button>
                     </td>
                     <td className="font-mono text-xs text-gray-500">{r.serial_no}</td>

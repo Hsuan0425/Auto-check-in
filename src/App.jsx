@@ -19,6 +19,7 @@ import PwaLayout from './components/pwa/PwaLayout'
 import CheckinMain from './pages/pwa/CheckinMain'
 import CheckinResult from './pages/pwa/CheckinResult'
 import PwaStats from './pages/pwa/PwaStats'
+import VipList from './pages/pwa/VipList'
 
 // 受保護路由：需登入才能進入後台
 function ProtectedRoute({ children }) {
@@ -82,6 +83,7 @@ export default function App() {
             <Route index element={<CheckinMain />} />
             <Route path="result" element={<CheckinResult />} />
             <Route path="stats" element={<PwaStats />} />
+            <Route path="vip" element={<VipList />} />
           </Route>
 
           {/* 404 */}
